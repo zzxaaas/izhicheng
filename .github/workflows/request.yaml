@@ -1,4 +1,4 @@
-name: selenium
+name: request
 
 # Controls when the action will run.
 on:
@@ -29,15 +29,12 @@ jobs:
         with:
           python-version: 3.7
       - name: 'Install requirements'
-        run: pip install -r ./Spider/requirements.txt
+        run: pip install -r ./request/requirements.txt
       - name: 'Working'
         env:
           students: ${{secrets.students}}
           API_KEY: ${{secrets.API_KEY}}
-          check: ${{secrets.check}}
         run: |
-          sudo cp -p ./chrome/chromedriver /usr/bin/
-          chmod -R 777 /usr/bin/chromedriver
           python -m pip install --upgrade pip
           python -m pip install pytz requests datetime
-          python ./Spider/izhicheng.py
+          python ./request/izhicheng.py

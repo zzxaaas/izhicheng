@@ -7,7 +7,7 @@
 import requests
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options  # 无GUI
-from webdriver_manager.chrome import ChromeDriverManager
+# from webdriver_manager.chrome import ChromeDriverManager
 import time
 import os
 import json
@@ -21,12 +21,12 @@ api_key = "API_KEY"
 api_url = "https://sctapi.ftqq.com/"  # serverChan 不支持完整的markdown语法且每日请求次数极其有限，请考虑用其他push robot代替，也许这就是高性能的代价（雾
 submit_time = 3
 check = 'NO'
-MAX_TRY = 20  # 最大重试次数
 
 # 如果检测到程序在 github actions 内运行，那么读取环境变量中的登录信息
 if os.environ.get('GITHUB_RUN_ID', None):
     api_key = os.environ['API_KEY']  # server酱的api，填了可以微信通知打卡结果，不填没影响
     check = os.environ['check']
+    atHome = os.environ['atHome']
     try:
         if not students:
             tmp_students = os.environ.get('students', '').split('\n')
@@ -55,18 +55,7 @@ class AtSchool():
         self.stuID = stuID
 
     def tianbiao(stuID):
-        chrome_options = Options()  # 无界面对象
-        chrome_options.add_argument("user-agent=Mozilla/5.0 (Linux; Android 12; M2012K11AC Build/SKQ1.211006.001; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/89.0.4389.72 MQQBrowser/6.2 TBS/046010 Mobile Safari/537.36 SuperApp")
-        chrome_options.add_argument('--headless')  # 浏览器不提供可视化页面. linux下如果系统不支持可视化不加这条会启动失败
-        chrome_options.add_argument('disable-dev-shm-usage')  # 禁用-开发-SHM-使用
-        chrome_options.add_argument('--disable-gpu')  # 谷歌文档提到需要加上这个属性来规避bug
-        chrome_options.add_argument('no-sandbox')  # 解决DevToolsActivePort文件不存在的报错
-        chromedriver = "/usr/bin/chromedriver"
-        os.environ["webdriver.chrome.driver"] = chromedriver
-        driver = webdriver.Chrome(
-            executable_path=ChromeDriverManager().install(),
-            options=chrome_options,
-            service_args=['--ignore-ssl-errors=true', '--ssl-protocol=TLSv1'])
+        driver = webdriver.Chrome()
 
         # 表单地址
         url = 'http://dw10.fdzcxy.edu.cn/datawarn/ReportServer?formlet=app/sjkrb.frm&op=h5&userno=' + str(
@@ -131,7 +120,7 @@ class AtSchool():
         content = AtSchool.tianbiao(stuID)
         days_after = check_days()
         # 打卡前日期与打开后日期对比
-        if days_before == -1:
+        if days_after ==-1:
             title = stuID[-3:] + " 学号不存在"
         elif days_after != days_before + 1:
             title = stuID[-3:] + " 疑似打卡失败"
@@ -149,19 +138,7 @@ class AtHome():
         self.region = region
 
     def tianbiao(stuID, province, city, region):
-        chrome_options = Options()  # 无界面对象
-        chrome_options.add_argument('--headless')  # 浏览器不提供可视化页面. linux下如果系统不支持可视化不加这条会启动失败
-        chrome_options.add_argument('disable-dev-shm-usage')  # 禁用-开发-SHM-使用
-        chrome_options.add_argument('--disable-gpu')  # 谷歌文档提到需要加上这个属性来规避bug
-        chrome_options.add_argument('no-sandbox')  # 解决DevToolsActivePort文件不存在的报错
-        chromedriver = "/usr/bin/chromedriver"
-        os.environ["webdriver.chrome.driver"] = chromedriver
-        # driver = webdriver.Chrome(options=chrome_options,executable_path=chromedriver)
-        # driver = webdriver.Chrome(chrome_options=chrome_options,executable_path=chromedriver)
-        driver = webdriver.Chrome(
-            executable_path=ChromeDriverManager().install(),
-            options=chrome_options,
-            service_args=['--ignore-ssl-errors=true', '--ssl-protocol=TLSv1'])
+        driver = webdriver.Chrome()
 
         # 表单地址
         url = 'http://dw10.fdzcxy.edu.cn/datawarn/ReportServer?formlet=app/sjkrb.frm&op=h5&userno=' + str(
@@ -264,7 +241,6 @@ def check_days():
     # 初始化日期，用于后续检测学号是否存在
     days = -1
     # 检测是否打卡成功链接
-    requests.session().keep_alive = False
     url = 'http://dw10.fdzcxy.edu.cn/datawarn/decision/view/report?viewlet=%252Fapp%252Fdkxq.cpt&__pi__=true&op=h5&xh=' + stuID + '&userno=' + stuID + '#/report'
     infoPage_data = requests.get(url)
     # 正则表达式获取uuid
@@ -292,56 +268,27 @@ def check_days():
 if __name__ == '__main__':
     print('共有 ' + str(len(students)) + ' 人等待打卡')
     for i in range(len(students)):
-        has_try = 0  # 尝试次数
         list_temp = students[i].split(' ')
         stuID = list_temp[0]
-        if len(list_temp) == 4:
+        if len(list_temp) > 1:
             province = list_temp[1]
             city = list_temp[2]
             region = list_temp[3]
             if check == 'YES':
-                while has_try < MAX_TRY:
-                    try:
-                        AtHome.sign_and_check(stuID, province, city, region)
-                        print(stuID[-3:] + ' 打卡完成')
-                        break
-                    except:
-                        has_try += 1
-                        time.sleep(10)
-                        print("重试次数" + str(has_try))
+                AtHome.sign_and_check(stuID, province, city, region)
+                print(stuID[-3:] + ' 打卡完成')
                 del (stuID)
             else:
-                while has_try < MAX_TRY:
-                    try:
-                        AtHome.tianbiao(stuID, province, city, region)
-                        print(stuID[-3:] + ' 打卡完成')
-                        break
-                    except:
-                        has_try += 1
-                        time.sleep(10)
-                        print("重试次数" + str(has_try))
-            del (stuID)
+                AtHome.tianbiao(stuID, province, city, region)
+                print(stuID[-3:] + ' 打卡完成')
+                del (stuID)
         else:
             if check == 'YES':
-                while has_try < MAX_TRY:
-                    try:
-                        AtSchool.sign_and_check(stuID)
-                        print(stuID[-3:] + ' 打卡完成')
-                        break
-                    except:
-                        has_try += 1
-                        time.sleep(10)
-                        print("重试次数" + str(has_try))
+                AtSchool.sign_and_check(stuID)
+                print(stuID[-3:] + ' 打卡完成')
                 del (stuID)
             else:
-                while has_try < MAX_TRY:
-                    try:
-                        AtSchool.tianbiao(stuID)
-                        print(stuID[-3:] + ' 打卡完成')
-                        break
-                    except:
-                        has_try += 1
-                        time.sleep(10)
-                        print("重试次数" + str(has_try))
+                AtSchool.tianbiao(stuID)
+                print(stuID[-3:] + ' 打卡完成')
                 del (stuID)
     print("打卡任务全部完成！")
